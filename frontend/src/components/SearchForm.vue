@@ -19,13 +19,19 @@ export default {
     data() {
         return {
             stockCode: '',
-            showSearch: true
+            showSearch: true,
+            errorMessage: ''  // 新增一個用於儲存錯誤消息的變數
         };
     },
     methods: {
         handleSubmit() {
+            if (this.stockCode.trim() === '') {
+                this.errorMessage = '請輸入股票代號。'; // 更新錯誤消息
+                return; // 如果股票代號為空，則不執行後續的路由跳轉
+            }
             this.$router.push({ name: 'StockInfo', params: { stockcode: this.stockCode } });
             this.showSearch = false; // 在跳轉後隱藏搜索表單
+            this.errorMessage = ''; // 清空任何存在的錯誤消息
         }
     },
     watch: {
@@ -38,14 +44,30 @@ export default {
 </script>
 
 <style>
-
-
-.search-section{
-    text-align: center;  
+.search-section {
+    display: flex;
+    /* 啟用 flexbox */
+    flex-direction: column;
+    /* 指定 flex 方向為垂直 */
+    justify-content: center;
+    /* 垂直置中 */
+    align-items: center;
+    /* 水平置中 */
+    height: 100vh;
+    /* 設定高度為視窗的100%，確保有足夠空間垂直置中 */
+    text-align: center;
 }
 
-.search {
-    font-family: Arial, sans-serif;
+.search-section h1 {
+    margin-top: 20px;
+    /* 上邊距 */
+    margin-bottom: 10px;
+    /* 下邊距 */
+}
+
+.search-section p {
+    margin-top: 0;
+    margin-bottom: 20px;
 }
 
 .search-bar {
