@@ -29,7 +29,7 @@ export default {
                 this.errorMessage = '請輸入股票代號。'; // 更新錯誤消息
                 return; // 如果股票代號為空，則不執行後續的路由跳轉
             }
-            this.$router.push({ name: 'StockInfo', params: { stockcode: this.stockCode } });
+            this.$router.push({ name: 'CurrentStock', params: { stockcode: this.stockCode } });
             this.showSearch = false; // 在跳轉後隱藏搜索表單
             this.errorMessage = ''; // 清空任何存在的錯誤消息
         }

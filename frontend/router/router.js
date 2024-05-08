@@ -1,6 +1,8 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHashHistory } from "vue-router";
 import SearchForm from "../src/components/SearchForm.vue";
 import StockInfo from "../src/components/StockInfo.vue";
+import CurrentStock from "../src/components/stockpages/CurrentStock.vue";
+import HistoryStock from "../src/components/stockpages/HistoryStock.vue";
 
 const routes = [
   {
@@ -12,11 +14,23 @@ const routes = [
     path: "/stock/:stockcode",
     name: "StockInfo",
     component: StockInfo,
+    children: [
+      {
+        path: "currentStock",
+        name: "CurrentStock",
+        component: CurrentStock
+      },
+      {
+        path: "historyStock",
+        name: "HistoryStock",
+        component: HistoryStock
+      },
+    ],
   },
 ];
 
 const router = createRouter({
-  history: createWebHistory(process.env.BASE_URL),
+  history: createWebHashHistory(),
   routes,
 });
 

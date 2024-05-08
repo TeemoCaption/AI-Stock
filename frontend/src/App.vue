@@ -1,7 +1,4 @@
 <template>
-  <div class="container">
-    <!-- 這裡面會被渲染 -->
-  </div>
   <router-view></router-view>
 </template>
 
