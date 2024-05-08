@@ -1,12 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
-import App from "../src/App.vue";
+import SearchForm from "../src/components/SearchForm.vue";
 import StockInfo from "../src/components/StockInfo.vue";
 
 const routes = [
   {
     path: "/",
-    name: "App",
-    component: App,
+    name: "SearchForm",
+    component: SearchForm,
   },
   {
     path: "/stock/:stockcode",
