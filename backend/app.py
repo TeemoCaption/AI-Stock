@@ -36,17 +36,13 @@ def get_predict_data(stock_code):
     end_date = request.args.get('end_date')
     stock_data = StockData(stock_code)
     
-    # 獲取歷史股票資訊
-    historical_data = stock_data.fetch_historical_data(start_date, end_date)
+    # 獲取近十天股票資訊
+    predict_data = stock_data.fetch_historical_data(start_date, end_date)
     
-    # 檢查是否收到有效的數據
-    if historical_data is None or historical_data.empty:
-        return jsonify({"error": "No data received"}), 400
-
     # 將 pandas DataFrame 轉為 dict，然後自動轉換為 JSON
     return jsonify({
         "stock_code": stock_code,
-        "historical_data": historical_data.to_dict('records')
+        "predict_data": predict_data.to_dict('records')
     })
 
 if __name__ == "__main__":

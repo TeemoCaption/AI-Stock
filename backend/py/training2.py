@@ -68,20 +68,22 @@ class MetricsHistory(Callback):
         self.train_mape.append(train_mape)
         self.val_mape.append(val_mape)
 
-# 讀取數據集
+# 讀取資料集
 data_path = './original data/TSLA/TSLA_history01.csv'
-stock_data = pd.read_csv(data_path)
+stock_data = pd.read_csv(data_path).copy() # 建立原始資料的副本
 
-# 移除含有缺失值的行
-stock_data_cleaned = stock_data.dropna()
+# 選擇後面空值資料做處理
+numeric_features = ['macd', 'macdsignal', 'macdhist', 'RSI', 'MOM', 'slowk', 'slowd']
+stock_data_numeric = stock_data[numeric_features]
+stock_data_numeric = stock_data_numeric.fillna(stock_data_numeric.rolling(5, min_periods=1).mean())
+stock_data_numeric.fillna(method='bfill', inplace=True)
 
-# 選擇特徵
-features = ['open', 'high', 'low', 'close', 'volume','macdhist','RSI','MOM','slowk','slowd']
-X = stock_data_cleaned[features]
+# 合併數據
+stock_data_final = pd.concat([stock_data[['open', 'high', 'low', 'close', 'volume']], stock_data_numeric], axis=1)
 
-# 初始化MinMaxScaler並擬合數據
+# 資料縮放
 scaler = MinMaxScaler()
-X_scaled = scaler.fit_transform(X)
+X_scaled = scaler.fit_transform(stock_data_final)
 
 # 創建時間序列數據集
 def create_dataset(data, time_steps=30, future_days=5):
