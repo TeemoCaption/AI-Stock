@@ -86,7 +86,7 @@ print("股票的即時資訊如下：")
 print(current_data)
 print("\n")
 
-historical_data = fetch_historical_stock_data(stock_symbol, "2020-01-01", "2024-05-01")
+historical_data = fetch_historical_stock_data(stock_symbol, "2019-05-09", "2024-05-09")
 print("股票的歷史資訊如下：")
 print(historical_data)
 

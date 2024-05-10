@@ -4,6 +4,7 @@
     <nav>
       <router-link :to="{ name: 'CurrentStock', params: { stockcode: stockCode } }">今日股票資訊</router-link>
       <router-link :to="{ name: 'HistoryStock', params: { stockcode: stockCode } }">過去股票資訊</router-link>
+      <router-link :to="{ name: 'PredictStock', params: { stockcode: stockCode } }">預測未來五天</router-link>
     </nav>
     <router-view />
   </div>

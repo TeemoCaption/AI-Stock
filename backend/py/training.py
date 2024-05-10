@@ -78,7 +78,7 @@ X_scaled = scaler.fit_transform(X)
 # 創建時間序列數據集
 def create_dataset(data, time_steps=30):
     X, y = [], []
-    for i in range(time_steps, len(data)):
+    for i in range(time_steps, len(data)):  # 目前是預測未來一天的收盤價
         X.append(data[i-time_steps:i, :-1])  # 所有特徵除了 'close' 都作為輸入
         y.append(data[i, -1])  # 'close' 價格作為目標
     return np.array(X), np.array(y)
@@ -117,12 +117,12 @@ model.compile(optimizer='adam', loss=Huber())
 # 設定早停機制
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1)
 
-# 在模型訓練時傳入回調
+# 在模型訓練時傳入回調，用於在Keras模型訓練過程中記錄較佳的性能指標
 metrics_history = MetricsHistory(X_train, y_train, X_val, y_val)
 
 history = model.fit(X_train, y_train, epochs=150, batch_size=16, validation_data=(X_val, y_val), callbacks=[early_stopping, metrics_history])
 
-model.save("py/model.keras")
+model.save("backend/py/model.keras")
 
 # 繪製訓練和驗證的損失曲線
 plt.figure(figsize=(10, 5))
