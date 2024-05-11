@@ -11,48 +11,48 @@ import axios from 'axios';
 export default {
     name: 'PredictStock',
     data() {
-        const today = new Date();
-        const tenDaysAgo = new Date(today.setDate(today.getDate() - 10)).toISOString().slice(0, 10);
-        const endDate = new Date().toISOString().slice(0, 10);
-
         return {
-            startDate: tenDaysAgo,
-            endDate: endDate,
             stockData: [],
-            stockCode: '',  // 股票編號
+            stockCode: '',
         };
     },
     created() {
-        // 重新從路由獲取股票編號
         this.stockCode = this.$route.params.stockcode;
+        this.updateDimensions();
     },
     mounted() {
+        window.addEventListener('resize', this.updateDimensions);
         this.fetchStockData();
-        this.drawChart();
+    },
+    beforeUnmount() {
+        window.removeEventListener('resize', this.updateDimensions);
     },
     methods: {
+        updateDimensions() {
+            this.$nextTick(() => {
+                const container = this.$refs.chart;
+                if (!container) return;
+
+                this.width = container.clientWidth;
+                this.height = container.clientHeight;
+
+                this.drawChart();
+            });
+        },
         fetchStockData() {
-            axios.get(`/stock/${this.stockCode}/getpredict`, {
-            })
+            axios.get(`/stock/${this.stockCode}/getpredict`, {})
                 .then(response => {
                     const predictData = response.data.predict_data;
-
-                    // 將預測數據添加到stockData中
-                    for (let i = 0; i < predictData.length; i++) {
-                        const futureDate = new Date();
-                        futureDate.setDate(futureDate.getDate() + i + 1);
+                    let currentDate = new Date();
+                    currentDate.setDate(currentDate.getDate() + 1); // 從明天開始
+                    for (let i = 0; i < Math.min(predictData.length, 5); i++) {
                         this.stockData.push({
-                            date: futureDate.toISOString().slice(0, 10),
+                            date: currentDate.toISOString().slice(0, 10),
                             close: predictData[i],
                         });
+                        currentDate.setDate(currentDate.getDate() + 1);
                     }
-
-                    this.$nextTick(() => {
-                        setTimeout(() => {
-                            this.updateChart(this.$refs.chart);
-                        }, 500);  // 延遲1秒後再更新圖表
-                    });
-                    console.log(predictData);
+                    this.drawChart(); // 在數據加載完後呼叫
                 })
                 .catch(error => {
                     console.error('Error fetching stock data:', error);
@@ -60,40 +60,24 @@ export default {
         },
         drawChart() {
             const container = this.$refs.chart;
-            const resizeObserver = new ResizeObserver(() => {
-                this.updateChart(container);
-            });
-            resizeObserver.observe(container);
-        },
+            if (!container || !this.stockData.length) return;
 
-        updateChart(container) {
-            if (!container || this.stockData.length === 0) return;
             d3.select(container).select('svg').remove();
-
-            const width = container.clientWidth || 600; // 為避免寬度為0，提供默認最小寬度
-            const height = container.clientHeight;
 
             const svg = d3.select(container)
                 .append('svg')
-                .attr('width', '100%') // 使用百分比以適應容器
-                .attr('height', '100%') // 使用百分比以適應容器
+                .attr('width', '100%')
+                .attr('height', '100%')
                 .style('background-color', 'white');
 
-            const margin = { top: 20, right: 70, bottom: 60, left: 40 };
-            const drawingWidth = width - margin.left - margin.right;
-            const drawingHeight = height - margin.top - margin.bottom;
+            const margin = { top: 20, right: 70, bottom: 60, left: 80 };
+            const drawingWidth = this.width - margin.left - margin.right;
+            const drawingHeight = this.height - margin.top - margin.bottom;
 
             const g = svg.append('g').attr('transform', `translate(${margin.left}, ${margin.top})`);
 
-            const parseDate = d3.timeParse('%Y-%m-%d');
-
-            this.stockData.forEach(d => {
-                d.date = parseDate(d.date);
-                d.close = +d.close;
-            });
-
             const x = d3.scaleTime()
-                .domain([d3.min(this.stockData, d => d.date), d3.max(this.stockData, d => d.date)])
+                .domain([d3.min(this.stockData, d => new Date(d.date)), d3.max(this.stockData, d => new Date(d.date))])
                 .range([0, drawingWidth]);
 
             const yPrice = d3.scaleLinear()
@@ -101,7 +85,7 @@ export default {
                 .range([drawingHeight, 0]);
 
             const line = d3.line()
-                .x(d => x(d.date))
+                .x(d => x(new Date(d.date)))
                 .y(d => yPrice(d.close));
 
             g.append('path')
@@ -111,42 +95,30 @@ export default {
                 .attr('stroke-width', 2)
                 .attr('d', line);
 
-            const totalDays = d3.timeDay.count(d3.min(this.stockData, d => d.date), d3.max(this.stockData, d => d.date)) + 1;
-            const tickInterval = totalDays > 30 ? 7 : 1; // 如果總天數超過30天，則每七天顯示一次日期，否則每天都顯示
+            this.stockData.forEach(data => {
+                g.append('circle')
+                    .attr('cx', x(new Date(data.date)))
+                    .attr('cy', yPrice(data.close))
+                    .attr('r', 5)
+                    .attr('fill', '#be0027');
+            });
 
-            let lastYear = null;
-            let lastMonth = null;
             g.append('g')
                 .attr('transform', `translate(0, ${drawingHeight})`)
-                .call(d3.axisBottom(x).ticks(d3.timeDay.every(tickInterval)).tickFormat(date => {
-                    const year = date.getFullYear();
-                    const month = date.getMonth();
-                    if (lastYear !== year) {
-                        lastYear = year;
-                        lastMonth = month;
-                        return d3.timeFormat('%Y')(date);
-                    } else if (lastMonth !== month) {
-                        lastMonth = month;
-                        return d3.timeFormat('%m-%d')(date);
-                    } else if (this.stockData.length <= 30) { // 如果資料點少於或等於30，則顯示日
-                        return d3.timeFormat('%m-%d')(date);
-                    } else {
-                        return '';
-                    }
-                }));
+                .call(d3.axisBottom(x).ticks(d3.timeDay.every(1)).tickFormat(d3.timeFormat('%m/%d')));
 
-            g.append('g')
-                .call(d3.axisLeft(yPrice));
+            g.append('g').call(d3.axisLeft(yPrice));
         }
     }
 }
 </script>
 
 <style scoped>
-.history-chart {
+.predict-chart {
     width: 100%;
     height: 400px;
     margin-top: 15px;
     border: 2px solid #11862f;
 }
+
 </style>

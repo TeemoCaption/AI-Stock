@@ -3,7 +3,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from py.getstock import StockData  # 導入取得股價資訊的類別程式
 from datetime import datetime, timedelta
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 import pandas as pd
 import numpy as np
 
@@ -46,19 +46,22 @@ def get_history_data(stock_code):
 @app.route("/<stock_code>/getpredict")
 def get_predict_data(stock_code):
     end_date = datetime.now().strftime('%Y-%m-%d')  # 獲取今天的日期
-    start_date = (datetime.now() - timedelta(days=35)).strftime('%Y-%m-%d')  # 獲取35天前的日期
+    start_date = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')  # 獲取90天前的日期
     stock_data = StockData(stock_code)
     
-    # 獲取近35天股票資訊
+    # 獲取近90天股票資訊
     data = stock_data.fetch_historical_data(start_date, end_date)
+    data.index = pd.to_datetime(data['date'])
+    data = stock_data.add_technical_indicators(data)
+    data.bfill(inplace=True);  # 使用向後填充處理缺失值
+    # 儲存處理後的數據集到CSV
+    pd.DataFrame(data).to_csv('TSLA_history_cleaned.csv', index=True)
     
-    model = load_model('./model.keras')  # 載入模型檔
-    
-    stock_data_filled = data.fillna(method='bfill', inplace=True);  # 使用向後填充處理缺失值
+    model = load_model('../backend/py/model.h5')  # 載入模型檔
     
     # 選擇特徵
     features = ['open', 'high', 'low', 'close', 'volume', 'macdhist', 'RSI', 'MOM', 'slowk', 'slowd']
-    X = stock_data_filled[features]
+    X = data[features]
     
     # 初始化MinMaxScaler並擬合數據
     scaler = MinMaxScaler()
@@ -69,11 +72,23 @@ def get_predict_data(stock_code):
 
     # 使用最後一個時間窗口的數據進行預測
     predictions = model.predict(X_series[-1].reshape(1, -1, X_series.shape[-1]))
-    
+
+    # 確保predictions是二維數組
+    predictions = predictions.reshape(-1, 1)
+
+    # 如果預測的是多個特徵，創建一個足夠大的數組用於反標準化
+    full_predictions = np.zeros((predictions.shape[0], len(features)))
+
+    # 將預測值填充到相應的特徵位置，假設預測的是第四個特徵
+    full_predictions[:, 3] = predictions.flatten()
+
+    # 反正規化預測結果
+    predictions = scaler.inverse_transform(full_predictions)[:, 3].tolist()
+
     # 將預測結果轉為 dict，然後自動轉換為 JSON
     return jsonify({
         "stock_code": stock_code,
-        "predict_data": predictions.flatten().tolist()
+        "predict_data": predictions
     })
 
 

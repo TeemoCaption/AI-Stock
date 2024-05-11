@@ -7,7 +7,7 @@
 優點：比較貼近真實、減少過度擬合的問題發生
 '''
 
-
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -144,7 +144,10 @@ metrics_history = MetricsHistory(X_train, y_train, X_val, y_val)
 
 history = model.fit(X_train, y_train, epochs=150, batch_size=16, validation_data=(X_val, y_val), callbacks=[early_stopping, checkpoint, metrics_history])
 
-model.save("backend/py/model.keras")
+# 打印當前工作目錄
+print("Current working directory:", os.getcwd())
+
+model.save("backend/py/model.h5")
 
 # 繪製訓練和驗證的損失曲線
 plt.figure(figsize=(10, 5))
