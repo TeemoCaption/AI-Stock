@@ -64,16 +64,19 @@ class MetricsHistory(Callback):
 data_path = './original data/TSLA/TSLA_history.csv'
 stock_data = pd.read_csv(data_path)
 
-# 移除含有缺失值的行
-stock_data_cleaned = stock_data.dropna()
+# 使用後向填充(backfill)方法處理缺失值
+stock_data_filled = stock_data.fillna(method='bfill')
 
 # 選擇特徵
-features = ['open', 'high', 'low', 'close', 'volume','macdhist','RSI','MOM','slowk','slowd']
-X = stock_data_cleaned[features]
+features = ['open', 'high', 'low', 'close', 'volume', 'macdhist', 'RSI', 'MOM', 'slowk', 'slowd']
+X = stock_data_filled[features]
 
 # 初始化MinMaxScaler並擬合數據
 scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X)
+
+# 儲存處理後的數據集到CSV
+stock_data_filled.to_csv('TSLA_history_cleaned.csv', index=False)
 
 # 創建時間序列數據集
 def create_dataset(data, time_steps=30):

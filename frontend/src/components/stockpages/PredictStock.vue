@@ -32,33 +32,27 @@ export default {
     },
     methods: {
         fetchStockData() {
-            axios.get(`/stock/${this.stockCode}/gethistory`, {
-                params: {
-                    start_date: this.startDate,
-                    end_date: this.endDate
-                }
+            axios.get(`/stock/${this.stockCode}/getpredict`, {
             })
                 .then(response => {
-                    const fullData = response.data.historical_data;
-                    this.stockData = fullData.map(item => {
-                        const dateObj = new Date(item.date);
-                        const year = dateObj.getFullYear();
-                        const month = dateObj.getMonth() + 1;  // getMonth 返回的月份從 0 開始
-                        const date = dateObj.getDate();
-                        const formattedDate = `${year}-${month.toString().padStart(2, '0')}-${date.toString().padStart(2, '0')}`;  // 將月份和日期格式化為兩位數
+                    const predictData = response.data.predict_data;
 
-                        return {
-                            date: formattedDate,
-                            close: Math.round(parseFloat(item.close) * 100) / 100,  // 四捨五入到小數點後兩位
-                            volume: parseInt(item.volume || 0)  // 如果 volume 存在則解析，否則設為0
-                        };
-                    });
+                    // 將預測數據添加到stockData中
+                    for (let i = 0; i < predictData.length; i++) {
+                        const futureDate = new Date();
+                        futureDate.setDate(futureDate.getDate() + i + 1);
+                        this.stockData.push({
+                            date: futureDate.toISOString().slice(0, 10),
+                            close: predictData[i],
+                        });
+                    }
+
                     this.$nextTick(() => {
                         setTimeout(() => {
                             this.updateChart(this.$refs.chart);
                         }, 500);  // 延遲1秒後再更新圖表
                     });
-                    console.log(this.stockData);
+                    console.log(predictData);
                 })
                 .catch(error => {
                     console.error('Error fetching stock data:', error);
@@ -96,7 +90,6 @@ export default {
             this.stockData.forEach(d => {
                 d.date = parseDate(d.date);
                 d.close = +d.close;
-                d.volume = +d.volume;
             });
 
             const x = d3.scaleTime()
@@ -106,13 +99,6 @@ export default {
             const yPrice = d3.scaleLinear()
                 .domain([0, d3.max(this.stockData, d => d.close)])
                 .range([drawingHeight, 0]);
-
-            const yVolume = d3.scaleLinear()
-                .domain([0, d3.max(this.stockData, d => d.volume)])
-                .range([drawingHeight, 0]);
-
-            const barWidth = this.stockData.length > 0 ? Math.max(1, Math.min(20, drawingWidth / this.stockData.length)) : 0;
-
 
             const line = d3.line()
                 .x(d => x(d.date))
@@ -124,16 +110,6 @@ export default {
                 .attr('stroke', '#be0027')
                 .attr('stroke-width', 2)
                 .attr('d', line);
-
-            g.selectAll('.bar')
-                .data(this.stockData)
-                .enter().append('rect')
-                .attr('class', 'bar')
-                .attr('x', d => x(d.date) - barWidth / 2)
-                .attr('y', d => yVolume(d.volume))
-                .attr('width', barWidth)
-                .attr('height', d => drawingHeight - yVolume(d.volume))
-                .attr('fill', '#11862f');
 
             const totalDays = d3.timeDay.count(d3.min(this.stockData, d => d.date), d3.max(this.stockData, d => d.date)) + 1;
             const tickInterval = totalDays > 30 ? 7 : 1; // 如果總天數超過30天，則每七天顯示一次日期，否則每天都顯示
@@ -159,13 +135,8 @@ export default {
                     }
                 }));
 
-
             g.append('g')
                 .call(d3.axisLeft(yPrice));
-
-            g.append('g')
-                .attr('transform', `translate(${drawingWidth}, 0)`)
-                .call(d3.axisRight(yVolume));
         }
     }
 }

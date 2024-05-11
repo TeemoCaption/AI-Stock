@@ -13,15 +13,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
-from keras.layers import LSTM, Dropout, Dense
-from keras.callbacks import Callback, EarlyStopping
+from keras.layers import Conv1D, MaxPooling1D, LSTM, Dropout, Dense, BatchNormalization
+from keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from keras.regularizers import l1_l2
+from tensorflow.keras.optimizers import RMSprop
 from keras.losses import Huber
 
-
-from keras.callbacks import Callback
-from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 class MetricsHistory(Callback):
     def __init__(self, X_train, y_train, X_val, y_val):
@@ -68,22 +65,23 @@ class MetricsHistory(Callback):
         self.train_mape.append(train_mape)
         self.val_mape.append(val_mape)
 
-# 讀取資料集
-data_path = './original data/TSLA/TSLA_history01.csv'
-stock_data = pd.read_csv(data_path).copy() # 建立原始資料的副本
+# 讀取數據集
+data_path = './original data/TSLA/TSLA_history.csv'
+stock_data = pd.read_csv(data_path)
 
-# 選擇後面空值資料做處理
-numeric_features = ['macd', 'macdsignal', 'macdhist', 'RSI', 'MOM', 'slowk', 'slowd']
-stock_data_numeric = stock_data[numeric_features]
-stock_data_numeric = stock_data_numeric.fillna(stock_data_numeric.rolling(5, min_periods=1).mean())
-stock_data_numeric.fillna(method='bfill', inplace=True)
+# 使用後向填充(backfill)方法處理缺失值
+stock_data_filled = stock_data.fillna(method='bfill')
 
-# 合併數據
-stock_data_final = pd.concat([stock_data[['open', 'high', 'low', 'close', 'volume']], stock_data_numeric], axis=1)
+# 選擇特徵
+features = ['open', 'high', 'low', 'close', 'volume', 'macdhist', 'RSI', 'MOM', 'slowk', 'slowd']
+X = stock_data_filled[features]
 
-# 資料縮放
+# 初始化MinMaxScaler並擬合數據
 scaler = MinMaxScaler()
-X_scaled = scaler.fit_transform(stock_data_final)
+X_scaled = scaler.fit_transform(X)
+
+# 儲存處理後的數據集到CSV
+stock_data_filled.to_csv('TSLA_history_cleaned.csv', index=False)
 
 # 創建時間序列數據集
 def create_dataset(data, time_steps=30, future_days=5):
@@ -109,32 +107,42 @@ y_train_val, y_test = y_series[:train_val_size], y_series[train_val_size:]
 X_train, X_val = X_train_val[:-val_size], X_train_val[-val_size:]
 y_train, y_val = y_train_val[:-val_size], y_train_val[-val_size:]
 
-# 建立LSTM模型
+
+# 模型架構
 model = Sequential([
-    LSTM(512, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
-    Dropout(0.3),
-    LSTM(256, return_sequences=True),
+    LSTM(128, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
     Dropout(0.3),
     LSTM(128),
     Dropout(0.3),
-    Dense(32, activation='relu'),
-    # 添加輸出層
-    Dense(5, activation='linear')  # 輸出層使用linear，這個激活函數適合迴歸問題
+    Dense(32, activation='linear'),
+    Dense(16, activation='linear'),
+    Dense(5, activation='linear')
 ])
 
 #顯示模型摘要資訊
 model.summary()  
 
+# 自定義RMSprop優化器
+custom_rmsprop = RMSprop(
+    learning_rate=0.001,  # 學習率
+    rho=0.9,              # 衰減係數，用於計算梯度的移動平均
+    momentum=0.9,         # 動量，有助於加速RMSprop在正確方向上的收斂
+    epsilon=1e-07         # 數值穩定常數，防止除零錯誤
+)
+
 # 編譯模型
-model.compile(optimizer='adam', loss=Huber())
+model.compile(optimizer=custom_rmsprop, loss=Huber())
 
 # 設定早停機制
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1)
 
+# 設定模型儲存點
+checkpoint = ModelCheckpoint('backend/py/best_model.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
+
 # 在模型訓練時傳入回調，用於在Keras模型訓練過程中記錄性能指標
 metrics_history = MetricsHistory(X_train, y_train, X_val, y_val)
 
-history = model.fit(X_train, y_train, epochs=150, batch_size=16, validation_data=(X_val, y_val), callbacks=[early_stopping, metrics_history])
+history = model.fit(X_train, y_train, epochs=150, batch_size=16, validation_data=(X_val, y_val), callbacks=[early_stopping, checkpoint, metrics_history])
 
 model.save("backend/py/model.keras")
 

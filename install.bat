@@ -7,5 +7,8 @@ pip install tensorflow
 pip install flask
 pip install numpy
 pip install pandas
+pip install matplotlib
+pip install scikit-learn
+pip install keras
 echo The packages installation is complete.
 pause
