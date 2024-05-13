@@ -14,9 +14,9 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
 from keras.layers import LSTM, Dropout, Dense
-from keras.callbacks import Callback, EarlyStopping
+from keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from keras.regularizers import l1_l2
+from tensorflow.keras.optimizers import RMSprop
 from keras.losses import Huber
 
 
@@ -100,30 +100,40 @@ y_train_val, y_test = y_series[:train_val_size], y_series[train_val_size:]
 X_train, X_val = X_train_val[:-val_size], X_train_val[-val_size:]
 y_train, y_val = y_train_val[:-val_size], y_train_val[-val_size:]
 
-# 建立LSTM模型
+# 模型架構
 model = Sequential([
     LSTM(256, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
     Dropout(0.3),
     LSTM(128),
     Dropout(0.3),
-    Dense(32, activation='relu'),
-    # 添加輸出層
-    Dense(1, activation='linear')  # 輸出層使用linear，這個激活函數適合迴歸問題
+    Dense(32, activation='linear'),
+    Dense(1, activation='linear')
 ])
 
 #顯示模型摘要資訊
 model.summary()  
 
+# 自定義RMSprop優化器
+custom_rmsprop = RMSprop(
+    learning_rate=0.001,  # 學習率
+    rho=0.9,              # 衰減係數，用於計算梯度的移動平均
+    momentum=0.9,         # 動量，有助於加速RMSprop在正確方向上的收斂
+    epsilon=1e-07         # 數值穩定常數，防止除零錯誤
+)
+
 # 編譯模型
-model.compile(optimizer='adam', loss=Huber())
+model.compile(optimizer=custom_rmsprop, loss=Huber())
 
 # 設定早停機制
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1)
 
-# 在模型訓練時傳入回調，用於在Keras模型訓練過程中記錄較佳的性能指標
+# 設定模型儲存點
+checkpoint = ModelCheckpoint('backend/py/best_model.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
+
+# 在模型訓練時傳入回調，用於在Keras模型訓練過程中記錄性能指標
 metrics_history = MetricsHistory(X_train, y_train, X_val, y_val)
 
-history = model.fit(X_train, y_train, epochs=150, batch_size=16, validation_data=(X_val, y_val), callbacks=[early_stopping, metrics_history])
+history = model.fit(X_train, y_train, epochs=150, batch_size=16, validation_data=(X_val, y_val), callbacks=[early_stopping, checkpoint, metrics_history])
 
 model.save("backend/py/model.keras")
 

@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
-from keras.layers import Conv1D, MaxPooling1D, LSTM, Dropout, Dense, BatchNormalization
+from keras.layers import LSTM, Dropout, Dense, Conv1D, MaxPooling1D
 from keras.callbacks import Callback, EarlyStopping, ModelCheckpoint
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from tensorflow.keras.optimizers import RMSprop
@@ -66,7 +66,7 @@ class MetricsHistory(Callback):
         self.val_mape.append(val_mape)
 
 # 讀取數據集
-data_path = './original data/TSLA/TSLA_history.csv'
+data_path = './original data/TSLA/TSLA_history01.csv'
 stock_data = pd.read_csv(data_path)
 
 # 使用後向填充(backfill)方法處理缺失值
@@ -111,11 +111,13 @@ y_train, y_val = y_train_val[:-val_size], y_train_val[-val_size:]
 # 模型架構
 model = Sequential([
     LSTM(128, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
-    Dropout(0.3),
+    Dropout(0.2),
     LSTM(128),
-    Dropout(0.3),
-    Dense(32, activation='linear'),
-    Dense(16, activation='linear'),
+    Dropout(0.2),
+    # 全連接層
+    Dense(16, activation='relu'),
+    Dense(8, activation='relu'),
+    # 輸出層
     Dense(5, activation='linear')
 ])
 
@@ -134,20 +136,17 @@ custom_rmsprop = RMSprop(
 model.compile(optimizer=custom_rmsprop, loss=Huber())
 
 # 設定早停機制
-early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1)
+early_stopping = EarlyStopping(monitor='val_loss', patience=15, verbose=1)
 
 # 設定模型儲存點
-checkpoint = ModelCheckpoint('backend/py/best_model.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
+checkpoint = ModelCheckpoint('backend/py/best_model_2.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
 
 # 在模型訓練時傳入回調，用於在Keras模型訓練過程中記錄性能指標
 metrics_history = MetricsHistory(X_train, y_train, X_val, y_val)
 
 history = model.fit(X_train, y_train, epochs=150, batch_size=16, validation_data=(X_val, y_val), callbacks=[early_stopping, checkpoint, metrics_history])
 
-# 打印當前工作目錄
-print("Current working directory:", os.getcwd())
-
-model.save("backend/py/model.h5")
+model.save("backend/py/model_2.keras")
 
 # 繪製訓練和驗證的損失曲線
 plt.figure(figsize=(10, 5))
